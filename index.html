@@ -1,122 +1,468 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scaffolding Checkout</title>
-<style>
-body{font-family:Arial;background:#f4f6f8}
-.card{max-width:420px;margin:auto;background:#fff;padding:15px;border-radius:10px}
-input,select,button{width:100%;padding:8px;margin:5px 0}
-table{width:100%;font-size:12px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Job Completion Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Professional Tweeks */
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; }
+        input, select { transition: all 0.2s; }
+        input:focus, select:focus { ring: 2px; ring-color: #2563eb; outline: none; border-color: #2563eb; }
+        .btn-press:active { transform: scale(0.98); }
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%;
+            width: 24px; height: 24px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
-<body>
+<body class="text-slate-800 pb-24">
 
-<div class="card" id="login">
-<h3>Supervisor Login</h3>
-<select id="user"></select>
-<input type="password" id="pass" placeholder="Passcode">
-<button onclick="login()">Login</button>
-</div>
+    <script>
+        // *** PASTE YOUR GOOGLE SCRIPT URL HERE ***
+        const API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzIDUZhawrZmd_8qvqDclP-E6oQt32HvXSQQQq_hCs7Bz_z-6MuiPwkxovKibJvrm-s/exec'; 
+    </script>
 
-<div class="card" id="app" style="display:none">
-<h3>Scaffolding Checkout</h3>
+    <div id="loader" class="fixed inset-0 bg-white/90 z-50 flex flex-col justify-center items-center hidden">
+        <div class="loader w-12 h-12 border-4 mb-4"></div>
+        <p class="font-semibold text-slate-600">Syncing Data...</p>
+    </div>
 
-<input id="sheetNo" placeholder="Sheet No">
-<input id="permitNo" placeholder="Permit No">
-<input type="date" id="date">
-<select id="jobType">
-<option>Erection</option>
-<option>Dismantling</option>
-</select>
-<input id="area" placeholder="Area">
-<input id="location" placeholder="Location">
-<select id="dept"></select>
-<select id="stype"></select>
-<select id="elev"></select>
+    <div id="view-login" class="min-h-screen flex flex-col justify-center p-6">
+        <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+            <div class="text-center mb-6">
+                <div class="bg-blue-900 text-white w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-hard-hat text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800">Supervisor Portal</h1>
+                <p class="text-sm text-slate-500">Job Completion Tracker</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Supervisor Name</label>
+                    <select id="auth-user" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg text-sm">
+                        <option>Loading list...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Passcode</label>
+                    <input type="password" id="auth-pass" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg text-sm" placeholder="••••">
+                </div>
+                <button onclick="app.login()" class="w-full bg-blue-900 text-white font-bold py-3 rounded-lg shadow-md hover:bg-blue-800 btn-press">
+                    SECURE LOGIN
+                </button>
+            </div>
+        </div>
+    </div>
 
-<input id="len" placeholder="Length">
-<input id="wid" placeholder="Width">
-<input id="ht" placeholder="Height">
-<input id="qty" placeholder="Qty">
+    <div id="view-app" class="hidden">
+        
+        <div class="bg-slate-900 text-white px-4 py-3 shadow-md sticky top-0 z-40 flex justify-between items-center">
+            <div>
+                <h2 class="font-bold text-sm tracking-wide">CHECK-OUT ENTRY</h2>
+                <div class="text-[10px] text-slate-300 flex items-center gap-1">
+                    <i class="fas fa-user"></i> <span id="display-user">User</span>
+                </div>
+            </div>
+            <div class="bg-slate-700 px-3 py-1 rounded-full text-xs font-mono">
+                Queue: <span id="queue-count" class="font-bold text-white">0</span>
+            </div>
+        </div>
 
-<button onclick="addEntry()">Add Measurement</button>
+        <div class="max-w-xl mx-auto p-4">
+            
+            <div class="bg-white rounded-lg shadow border border-slate-200 overflow-hidden mb-6">
+                <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                    <span class="font-bold text-slate-700 text-xs uppercase">New Measurement</span>
+                    <button onclick="app.clearForm()" class="text-blue-600 text-xs font-bold">Reset Form</button>
+                </div>
+                
+                <div class="p-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="inp-sheet" placeholder="Sheet No." class="input-field bg-yellow-50 border-yellow-200">
+                        <input type="text" id="inp-permit" placeholder="Permit No." class="input-field bg-yellow-50 border-yellow-200">
+                    </div>
 
-<table border="1" id="tbl"></table>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="date" id="inp-date" class="input-field">
+                        <input type="text" id="inp-area" placeholder="Area" class="input-field">
+                    </div>
 
-<input id="manpower" placeholder="Total Manpower">
+                    <input type="text" id="inp-loc" placeholder="Specific Location" class="input-field">
 
-<button onclick="submitData()">SUBMIT</button>
-</div>
+                    <div class="h-px bg-slate-100 my-2"></div>
 
-<script>
-const WEB_APP_URL="https://script.google.com/macros/s/AKfycbzIDUZhawrZmd_8qvqDclP-E6oQt32HvXSQQQq_hCs7Bz_z-6MuiPwkxovKibJvrm-s/exec";
+                    <div class="grid grid-cols-2 gap-3">
+                        <select id="inp-type" class="input-field font-semibold text-blue-900">
+                            <option value="ERECTION">ERECTION</option>
+                            <option value="DISMANTLING">DISMANTLING</option>
+                        </select>
+                        <select id="inp-dept" class="input-field"><option value="">Select Dept</option></select>
+                    </div>
 
-let users=[], entries=[], supervisor="";
+                    <div class="grid grid-cols-2 gap-3">
+                        <select id="inp-scaffold" class="input-field"><option value="">Scaffold Type</option></select>
+                        <select id="inp-elev" class="input-field"><option value="">Elevation</option></select>
+                    </div>
 
-fetch(WEB_APP_URL).then(r=>r.json()).then(d=>{
-  users=d.users;
-  d.users.forEach(u=>{
-    user.innerHTML+=`<option>${u[0]}</option>`;
-  });
-  d.departments.forEach(v=>dept.innerHTML+=`<option>${v}</option>`);
-  d.scaffoldTypes.forEach(v=>stype.innerHTML+=`<option>${v}</option>`);
-  d.elevations.forEach(v=>elev.innerHTML+=`<option>${v}</option>`);
-});
+                    <div class="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
+                        <div class="grid grid-cols-4 gap-2 mb-2">
+                            <div class="col-span-1">
+                                <label class="text-[10px] text-slate-400 block text-center">Len</label>
+                                <input type="number" id="inp-l" class="w-full text-center border p-1 rounded text-sm" placeholder="0">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="text-[10px] text-slate-400 block text-center">Wid</label>
+                                <input type="number" id="inp-w" class="w-full text-center border p-1 rounded text-sm" placeholder="0">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="text-[10px] text-slate-400 block text-center">Hgt</label>
+                                <input type="number" id="inp-h" class="w-full text-center border p-1 rounded text-sm" placeholder="0">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="text-[10px] text-slate-400 block text-center">Qty</label>
+                                <input type="number" id="inp-q" class="w-full text-center border p-1 rounded text-sm" placeholder="0">
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-200 pt-2">
+                            <span class="text-xs font-bold text-slate-500 uppercase">Calculated Volume</span>
+                            <span class="text-lg font-bold text-slate-800"><span id="calc-vol">0.00</span> m³</span>
+                        </div>
+                    </div>
 
-function login(){
-  const u=user.value,p=pass.value;
-  const ok=users.find(r=>r[0]==u && r[1]==p);
-  if(!ok){alert("Invalid");return;}
-  supervisor=u;
-  login.style.display="none";
-  app.style.display="block";
-}
+                    <button onclick="app.addEntry()" class="w-full bg-slate-800 text-white py-3 rounded font-bold hover:bg-black flex justify-center items-center gap-2 btn-press">
+                        <i class="fas fa-plus-circle"></i> ADD ENTRY TO LIST
+                    </button>
+                </div>
+            </div>
 
-function addEntry(){
-  const L=+len.value,W=+wid.value,H=+ht.value,Q=+qty.value;
-  let vol=L*W*H*Q;
-  if(jobType.value=="Dismantling") vol=vol/2;
+            <div id="queue-container" class="space-y-3 mb-20">
+                </div>
+        </div>
 
-  entries.push({
-    sheetNo:sheetNo.value,
-    permitNo:permitNo.value,
-    date:date.value,
-    jobType:jobType.value,
-    area:area.value,
-    location:location.value,
-    department:dept.value,
-    scaffoldType:stype.value,
-    elevation:elev.value,
-    length:L,width:W,height:H,qty:Q,volume:vol
-  });
+        <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 z-40 shadow-lg">
+            <div class="max-w-xl mx-auto flex gap-3 items-end">
+                <div class="flex-1">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Total Manpower</label>
+                    <input type="number" id="total-manpower" class="w-full border border-slate-300 p-2 rounded text-lg font-bold text-center" placeholder="0">
+                </div>
+                <div class="flex-[2]">
+                    <button onclick="app.submitAll()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-sm uppercase shadow-md hover:bg-green-700 btn-press">
+                        Submit Job Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-  tbl.innerHTML+=`<tr><td>${jobType.value}</td><td>${vol.toFixed(2)}</td></tr>`;
-}
+    <div id="view-report" class="hidden fixed inset-0 z-50 bg-slate-900/95 overflow-y-auto p-4">
+        <div class="max-w-md mx-auto mt-10">
+            <div id="report-card" class="bg-white p-6 rounded-none shadow-2xl relative">
+                <div class="border-b-2 border-slate-800 pb-4 mb-4 flex justify-between items-end">
+                    <div>
+                        <h1 class="text-2xl font-black text-slate-900 leading-none">JOB SUMMARY</h1>
+                        <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">Completion Report</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400">Date</div>
+                        <div class="font-bold text-slate-800" id="rpt-date">--</div>
+                    </div>
+                </div>
 
-function submitData(){
-  const totalE=entries.filter(e=>e.jobType=="Erection").reduce((a,b)=>a+b.volume,0);
-  const totalD=entries.filter(e=>e.jobType=="Dismantling").reduce((a,b)=>a+b.volume,0);
-  const mh=manpower.value*10;
-  const prod=((totalE+totalD)/mh).toFixed(2);
+                <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+                    <div class="bg-slate-50 p-2 rounded border border-slate-100">
+                        <span class="block text-[10px] text-slate-400 uppercase">Supervisor</span>
+                        <span class="font-bold text-slate-800 truncate block" id="rpt-sup">--</span>
+                    </div>
+                    <div class="bg-slate-50 p-2 rounded border border-slate-100">
+                        <span class="block text-[10px] text-slate-400 uppercase">Total Items</span>
+                        <span class="font-bold text-slate-800" id="rpt-items">0</span>
+                    </div>
+                </div>
 
-  const report=
-`Date: ${date.value}
-Supervisor: ${supervisor}
-Area: ${area.value}
-Total Erection: ${totalE.toFixed(2)}
-Total Dismantling: ${totalD.toFixed(2)}
-Total Manhours: ${mh}
-Productivity: ${prod}`;
+                <div class="space-y-3 mb-6">
+                    <div class="flex justify-between items-center pb-2 border-b border-dashed border-slate-300">
+                        <span class="text-sm font-semibold text-slate-600">Total Erection</span>
+                        <span class="font-mono font-bold text-blue-700 text-lg"><span id="rpt-erection">0</span> m³</span>
+                    </div>
+                    <div class="flex justify-between items-center pb-2 border-b border-dashed border-slate-300">
+                        <span class="text-sm font-semibold text-slate-600">Total Dismantling</span>
+                        <span class="font-mono font-bold text-red-600 text-lg"><span id="rpt-dismantling">0</span> m³</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-semibold text-slate-600">Manpower / Hrs</span>
+                        <span class="font-bold text-slate-800"><span id="rpt-mp">0</span> / <span id="rpt-mh">0</span></span>
+                    </div>
+                </div>
 
-  navigator.clipboard.writeText(report);
-  alert("Report copied to clipboard");
+                <div class="bg-slate-900 text-white p-3 rounded text-center">
+                    <div class="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Productivity Rating</div>
+                    <div class="text-3xl font-black" id="rpt-prod">0.00</div>
+                </div>
+            </div>
 
-  fetch(WEB_APP_URL,{
-    method:"POST",
-    body:JSON.stringify({supervisor,entries})
-  }).then(()=>location.reload());
-}
-</script>
+            <div class="mt-6 space-y-3">
+                <button onclick="app.shareWhatsapp()" class="w-full bg-green-500 text-white py-3 rounded font-bold flex items-center justify-center gap-2 btn-press">
+                    <i class="fab fa-whatsapp text-xl"></i> Share Text Summary
+                </button>
+                <button onclick="app.downloadImage()" class="w-full bg-blue-600 text-white py-3 rounded font-bold flex items-center justify-center gap-2 btn-press">
+                    <i class="fas fa-download"></i> Download JPEG Report
+                </button>
+                <button onclick="location.reload()" class="w-full bg-transparent border border-white/30 text-white py-3 rounded font-bold hover:bg-white/10">
+                    Close & Start New
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            data: {
+                user: '',
+                entries: [],
+                dropdowns: {}
+            },
+
+            init: async () => {
+                document.getElementById('inp-date').valueAsDate = new Date();
+                
+                // Add calculation listeners
+                ['inp-l', 'inp-w', 'inp-h', 'inp-q', 'inp-type'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', app.calculateVolume);
+                });
+
+                app.toggleLoader(true);
+                try {
+                    const res = await fetch(`${API_ENDPOINT}?action=getMeta`);
+                    const json = await res.json();
+                    app.data.dropdowns = json;
+                    app.populateDropdown('auth-user', json.supervisors);
+                    app.populateDropdown('inp-dept', json.departments);
+                    app.populateDropdown('inp-scaffold', json.types); // Corrected key
+                    app.populateDropdown('inp-elev', json.elevations);
+                } catch (e) {
+                    alert("System Error: Could not fetch setup data.");
+                }
+                app.toggleLoader(false);
+            },
+
+            login: async () => {
+                const user = document.getElementById('auth-user').value;
+                const pass = document.getElementById('auth-pass').value;
+                
+                app.toggleLoader(true);
+                try {
+                    const res = await fetch(`${API_ENDPOINT}?action=login&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
+                    const json = await res.json();
+                    
+                    if (json.status === 'success') {
+                        app.data.user = json.user;
+                        document.getElementById('display-user').innerText = json.user;
+                        document.getElementById('view-login').classList.add('hidden');
+                        document.getElementById('view-app').classList.remove('hidden');
+                    } else {
+                        alert("Access Denied: Check credentials.");
+                    }
+                } catch (e) { alert("Network Error"); }
+                app.toggleLoader(false);
+            },
+
+            calculateVolume: () => {
+                const l = parseFloat(document.getElementById('inp-l').value) || 0;
+                const w = parseFloat(document.getElementById('inp-w').value) || 0;
+                const h = parseFloat(document.getElementById('inp-h').value) || 0;
+                const q = parseFloat(document.getElementById('inp-q').value) || 0;
+                const type = document.getElementById('inp-type').value;
+
+                let vol = (l * w * h * q);
+                if (type === 'DISMANTLING') vol = vol / 2;
+
+                document.getElementById('calc-vol').innerText = vol.toFixed(2);
+                return vol;
+            },
+
+            addEntry: () => {
+                // Validation
+                const required = ['inp-sheet', 'inp-permit', 'inp-loc', 'inp-dept', 'inp-l', 'inp-w', 'inp-h', 'inp-q'];
+                for (let id of required) {
+                    if (!document.getElementById(id).value) return alert("Missing Field: " + id.replace('inp-', '').toUpperCase());
+                }
+
+                const entry = {
+                    id: Date.now(),
+                    sheetNo: document.getElementById('inp-sheet').value,
+                    permitNo: document.getElementById('inp-permit').value,
+                    date: document.getElementById('inp-date').value,
+                    area: document.getElementById('inp-area').value,
+                    location: document.getElementById('inp-loc').value,
+                    department: document.getElementById('inp-dept').value,
+                    scaffoldType: document.getElementById('inp-scaffold').value,
+                    elevation: document.getElementById('inp-elev').value,
+                    type: document.getElementById('inp-type').value,
+                    length: document.getElementById('inp-l').value,
+                    width: document.getElementById('inp-w').value,
+                    height: document.getElementById('inp-h').value,
+                    qty: document.getElementById('inp-q').value,
+                    volume: app.calculateVolume() // Get precise float
+                };
+
+                app.data.entries.push(entry);
+                app.renderQueue();
+                
+                // Clear Entry-Specific Fields (Keep Date/Area)
+                ['inp-sheet', 'inp-permit', 'inp-loc', 'inp-l', 'inp-w', 'inp-h', 'inp-q'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+                document.getElementById('calc-vol').innerText = "0.00";
+            },
+
+            renderQueue: () => {
+                const container = document.getElementById('queue-container');
+                container.innerHTML = '';
+                
+                app.data.entries.forEach((entry, idx) => {
+                    const isErec = entry.type === 'ERECTION';
+                    const borderColor = isErec ? 'border-l-blue-600' : 'border-l-red-600';
+                    const badgeColor = isErec ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800';
+
+                    const html = `
+                    <div class="bg-white p-3 rounded shadow-sm border-l-4 ${borderColor} relative">
+                        <button onclick="app.removeEntry(${idx})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold px-2">&times;</button>
+                        
+                        <div class="flex justify-between items-start mb-1 pr-6">
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">${entry.sheetNo} <span class="text-slate-400 font-normal">/</span> ${entry.permitNo}</div>
+                                <div class="text-xs text-slate-500 truncate w-48">${entry.location}</div>
+                            </div>
+                            <span class="${badgeColor} text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">${entry.type.substr(0,1)}</span>
+                        </div>
+
+                        <div class="flex justify-between items-center mt-2 border-t border-slate-100 pt-2">
+                            <div class="font-mono text-xs text-slate-500">
+                                ${entry.length}×${entry.width}×${entry.height} <span class="text-slate-300">|</span> Q:${entry.qty}
+                            </div>
+                            <div class="font-bold text-slate-800">${entry.volume.toFixed(3)} m³</div>
+                        </div>
+                    </div>`;
+                    container.innerHTML += html;
+                });
+
+                document.getElementById('queue-count').innerText = app.data.entries.length;
+            },
+
+            removeEntry: (index) => {
+                app.data.entries.splice(index, 1);
+                app.renderQueue();
+            },
+
+            submitAll: async () => {
+                if (app.data.entries.length === 0) return alert("Queue is empty.");
+                const manpower = document.getElementById('total-manpower').value;
+                if (!manpower) return alert("Enter Total Manpower");
+
+                app.toggleLoader(true);
+
+                const payload = {
+                    supervisor: app.data.user,
+                    entries: app.data.entries
+                };
+
+                try {
+                    const res = await fetch(API_ENDPOINT, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    const json = await res.json();
+                    
+                    if(json.status === 'success') {
+                        app.generateReport(manpower);
+                    } else {
+                        alert("Server Error: " + json.message);
+                    }
+                } catch (e) {
+                    alert("Submission Failed");
+                }
+                app.toggleLoader(false);
+            },
+
+            generateReport: (manpower) => {
+                let erec = 0, dism = 0;
+                app.data.entries.forEach(e => {
+                    if (e.type === 'ERECTION') erec += parseFloat(e.volume);
+                    else dism += parseFloat(e.volume);
+                });
+
+                const mh = manpower * 10;
+                const prod = mh > 0 ? (erec + dism) / mh : 0;
+
+                // Bind Data
+                document.getElementById('rpt-date').innerText = app.data.entries[0].date;
+                document.getElementById('rpt-sup').innerText = app.data.user;
+                document.getElementById('rpt-items').innerText = app.data.entries.length;
+                document.getElementById('rpt-erection').innerText = erec.toFixed(2);
+                document.getElementById('rpt-dismantling').innerText = dism.toFixed(2);
+                document.getElementById('rpt-mp').innerText = manpower;
+                document.getElementById('rpt-mh').innerText = mh;
+                document.getElementById('rpt-prod').innerText = prod.toFixed(2);
+
+                document.getElementById('view-report').classList.remove('hidden');
+            },
+
+            shareWhatsapp: () => {
+                const s = document.getElementById('rpt-sup').innerText;
+                const e = document.getElementById('rpt-erection').innerText;
+                const d = document.getElementById('rpt-dismantling').innerText;
+                const p = document.getElementById('rpt-prod').innerText;
+                
+                const text = `*SUPERVISOR REPORT*\nName: ${s}\n\nTotal Erection: ${e} m³\nTotal Dismantling: ${d} m³\nProductivity: ${p}\n\nStatus: SUBMITTED`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            },
+
+            downloadImage: () => {
+                html2canvas(document.getElementById('report-card')).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `JobReport_${Date.now()}.jpg`;
+                    link.href = canvas.toDataURL("image/jpeg");
+                    link.click();
+                });
+            },
+
+            // Utils
+            populateDropdown: (id, list) => {
+                const el = document.getElementById(id);
+                el.innerHTML = list.map(item => `<option value="${item}">${item}</option>`).join('');
+            },
+            toggleLoader: (show) => {
+                const l = document.getElementById('loader');
+                if(show) l.classList.remove('hidden');
+                else l.classList.add('hidden');
+            },
+            clearForm: () => {
+                 document.querySelectorAll('#view-app input').forEach(i => i.value = '');
+                 app.data.entries = [];
+                 app.renderQueue();
+            }
+        };
+
+        // Initialize
+        window.onload = app.init;
+    </script>
+    
+    <style>
+        .input-field {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            background-color: #fff;
+        }
+    </style>
 </body>
 </html>

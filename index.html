@@ -13,354 +13,358 @@
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="font-sans text-gray-800">
+<body class="font-sans text-gray-800 pb-20">
 
     <script>
-        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
+        // REPLACE WITH YOUR NEW DEPLOYMENT URL
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzIDUZhawrZmd_8qvqDclP-E6oQt32HvXSQQQq_hCs7Bz_z-6MuiPwkxovKibJvrm-s/exec';
     </script>
 
-    <div class="max-w-md mx-auto min-h-screen bg-white shadow-xl overflow-hidden relative">
-        
-        <div class="bg-blue-800 text-white p-4 text-center">
-            <h1 class="text-xl font-bold">JOB COMPLETION TRACKER</h1>
-            <p class="text-xs opacity-75">Supervisor Check-Out</p>
+    <div class="bg-blue-900 text-white p-4 shadow-md sticky top-0 z-50 flex justify-between items-center">
+        <div>
+            <h1 class="font-bold text-lg">CHECK-OUT TRACKER</h1>
+            <p class="text-xs text-blue-200" id="headerSupervisorName">Login Required</p>
         </div>
-
-        <div id="loadingView" class="p-10 text-center hidden">
-            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>
-            <p>Loading...</p>
+        <div class="text-right">
+            <p class="text-xs">Items Added</p>
+            <p class="font-bold text-xl" id="itemCountBadge">0</p>
         </div>
+    </div>
 
-        <div id="loginView" class="p-6">
-            <h2 class="text-lg font-bold mb-4 text-center">Supervisor Login</h2>
+    <div id="loadingView" class="p-10 text-center hidden">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>
+        <p>Processing...</p>
+    </div>
+
+    <div id="loginView" class="p-6 h-screen flex flex-col justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4 text-center text-blue-900">Supervisor Login</h2>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium">Supervisor Name</label>
-                    <select id="loginUser" class="w-full border p-2 rounded bg-gray-50"></select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium">Passcode</label>
-                    <input type="password" id="loginPass" class="w-full border p-2 rounded" placeholder="Enter passcode">
-                </div>
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">LOGIN</button>
+                <select id="loginUser" class="w-full border p-3 rounded bg-gray-50"></select>
+                <input type="password" id="loginPass" class="w-full border p-3 rounded" placeholder="Passcode">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded font-bold hover:bg-blue-700">LOGIN</button>
             </div>
         </div>
+    </div>
 
-        <div id="formView" class="hidden pb-20">
-            <div class="p-4 bg-gray-50 border-b space-y-3">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="sheetNo" placeholder="Sheet No." class="border p-2 rounded text-sm w-full">
-                    <input type="text" id="permitNo" placeholder="Permit No." class="border p-2 rounded text-sm w-full">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="date" id="entryDate" class="border p-2 rounded text-sm w-full">
-                    <input type="text" id="area" placeholder="Area" class="border p-2 rounded text-sm w-full">
-                </div>
-                <input type="text" id="location" placeholder="Specific Location" class="border p-2 rounded text-sm w-full">
+    <div id="formView" class="hidden p-4 max-w-lg mx-auto">
+        
+        <div class="bg-white rounded-lg shadow-md border border-gray-300 overflow-hidden mb-6">
+            <div class="bg-gray-100 p-3 border-b font-bold text-gray-700 text-sm">
+                NEW ENTRY DETAILS
             </div>
-
-            <div id="measurementsContainer" class="p-2 space-y-3"></div>
-
-            <div class="p-2 text-center">
-                <button onclick="addMeasurementRow()" class="text-blue-600 font-bold text-sm">+ Add Measurement Entry</button>
-            </div>
-
-            <div class="p-4 border-t bg-gray-100">
-                <label class="block text-xs font-bold text-gray-500">TOTAL MANPOWER</label>
-                <input type="number" id="totalManpower" class="border p-2 w-full rounded mb-4" placeholder="Enter headcount">
-                
-                <button onclick="submitData()" class="w-full bg-green-600 text-white py-3 rounded font-bold shadow-lg">
-                    SUBMIT & GENERATE REPORT
-                </button>
-            </div>
-        </div>
-
-        <div id="reportView" class="hidden p-4">
             
-            <div id="jpegCapture" class="bg-white border-2 border-gray-800 p-4 mb-6">
-                <div class="text-center border-b-2 border-gray-800 pb-2 mb-2">
-                    <h2 class="text-2xl font-bold text-blue-900">JOB SUMMARY</h2>
-                    <p class="text-sm text-gray-600" id="reportDate"></p>
+            <div class="p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="sheetNo" placeholder="Sheet No." class="border p-2 rounded w-full text-sm bg-yellow-50">
+                    <input type="text" id="permitNo" placeholder="Permit No." class="border p-2 rounded w-full text-sm bg-yellow-50">
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4 text-sm mb-4">
-                    <div>
-                        <span class="block text-gray-500 text-xs">SUPERVISOR</span>
-                        <span class="font-bold" id="reportSupervisor"></span>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="date" id="entryDate" class="border p-2 rounded w-full text-sm">
+                    <input type="text" id="area" placeholder="Area" class="border p-2 rounded w-full text-sm">
+                </div>
+
+                <input type="text" id="location" placeholder="Specific Location" class="border p-2 rounded w-full text-sm">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <select id="actionType" class="border p-2 rounded w-full text-sm font-bold text-blue-900">
+                        <option value="ERECTION">ERECTION</option>
+                        <option value="DISMANTLING">DISMANTLING</option>
+                    </select>
+                    <select id="department" class="border p-2 rounded w-full text-sm"><option>Loading...</option></select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <select id="scaffoldType" class="border p-2 rounded w-full text-sm"><option>Loading...</option></select>
+                    <select id="elevation" class="border p-2 rounded w-full text-sm"><option>Loading...</option></select>
+                </div>
+
+                <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                    <p class="text-xs text-blue-800 font-bold mb-1">MEASUREMENTS</p>
+                    <div class="grid grid-cols-4 gap-2 mb-2">
+                        <input type="number" id="len" placeholder="L" class="border p-2 rounded text-sm text-center">
+                        <input type="number" id="wid" placeholder="W" class="border p-2 rounded text-sm text-center">
+                        <input type="number" id="hgt" placeholder="H" class="border p-2 rounded text-sm text-center">
+                        <input type="number" id="qty" placeholder="Qty" class="border p-2 rounded text-sm text-center">
                     </div>
-                    <div>
-                        <span class="block text-gray-500 text-xs">AREA</span>
-                        <span class="font-bold" id="reportArea"></span>
+                    <div class="text-right text-xs text-gray-500">
+                        Auto Vol: <span id="previewVol" class="font-bold text-black">0.00</span> m³
                     </div>
                 </div>
 
-                <div class="bg-gray-100 p-3 rounded mb-4 space-y-2">
-                    <div class="flex justify-between">
-                        <span>Total Erection (m³):</span>
-                        <span class="font-bold text-blue-700" id="reportErection">0.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Total Dismantling (m³):</span>
-                        <span class="font-bold text-red-700" id="reportDismantling">0.00</span>
-                    </div>
-                    <div class="border-t border-gray-300 my-1"></div>
-                    <div class="flex justify-between">
-                        <span>Manpower:</span>
-                        <span class="font-bold" id="reportManpower">0</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Total Manhours:</span>
-                        <span class="font-bold" id="reportManhours">0</span>
-                    </div>
-                </div>
-
-                <div class="text-center p-2 border-2 border-blue-900 text-blue-900 font-bold rounded">
-                    PRODUCTIVITY: <span id="reportProductivity" class="text-xl">0.00</span>
-                </div>
-                <p class="text-center text-[10px] text-gray-400 mt-2">Generated via JobTracker App</p>
-            </div>
-
-            <div class="space-y-3">
-                <button onclick="copyToWhatsapp()" class="w-full bg-green-500 text-white py-3 rounded flex items-center justify-center gap-2">
-                    <i class="fab fa-whatsapp"></i> Copy Text for WhatsApp
-                </button>
-                <button onclick="downloadJpeg()" class="w-full bg-blue-600 text-white py-3 rounded flex items-center justify-center gap-2">
-                    <i class="fas fa-image"></i> Download Image Report
-                </button>
-                <button onclick="location.reload()" class="w-full border border-gray-400 text-gray-600 py-3 rounded">
-                    Close & New Entry
+                <button onclick="addToQueue()" class="w-full bg-gray-800 text-white py-3 rounded font-bold flex justify-center items-center gap-2">
+                    <i class="fas fa-plus-circle"></i> ADD TO LIST
                 </button>
             </div>
         </div>
 
+        <div id="queueContainer" class="space-y-3 mb-8">
+            </div>
+
+        <div class="fixed bottom-0 left-0 w-full bg-white border-t p-4 shadow-lg z-40">
+            <div class="max-w-lg mx-auto">
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500">MANPOWER</label>
+                        <input type="number" id="totalManpower" class="border p-2 w-full rounded" placeholder="Total Headcount">
+                    </div>
+                    <div class="text-right">
+                         <p class="text-xs text-gray-500">Total Volume</p>
+                         <p class="font-bold text-xl"><span id="totalVolDisplay">0.00</span> m³</p>
+                    </div>
+                </div>
+                <button onclick="submitAll()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg shadow">
+                    SUBMIT ALL ENTRIES
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportView" class="hidden p-4 max-w-lg mx-auto">
+        <div id="jpegCapture" class="bg-white border-2 border-gray-800 p-5 rounded-none shadow-xl mb-6">
+            <div class="text-center border-b-2 border-gray-800 pb-3 mb-4">
+                <h2 class="text-2xl font-black text-blue-900 tracking-tighter">DAILY SUMMARY</h2>
+                <p class="text-sm text-gray-600" id="repDate"></p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div>
+                    <span class="block text-gray-400 text-[10px] uppercase">Supervisor</span>
+                    <span class="font-bold text-gray-800" id="repSup"></span>
+                </div>
+                <div>
+                    <span class="block text-gray-400 text-[10px] uppercase">Entries</span>
+                    <span class="font-bold text-gray-800" id="repCount"></span>
+                </div>
+            </div>
+
+            <div class="bg-gray-100 p-4 rounded mb-4 space-y-3 text-sm">
+                <div class="flex justify-between border-b border-gray-300 pb-2">
+                    <span>Total Erection</span>
+                    <span class="font-bold text-blue-700"><span id="repErec">0</span> m³</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-300 pb-2">
+                    <span>Total Dismantling</span>
+                    <span class="font-bold text-red-700"><span id="repDism">0</span> m³</span>
+                </div>
+                <div class="flex justify-between pt-1">
+                    <span>Manpower</span>
+                    <span class="font-bold text-gray-800" id="repManpower">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Productivity</span>
+                    <span class="font-bold text-black bg-yellow-200 px-1 rounded" id="repProd">0.00</span>
+                </div>
+            </div>
+            <p class="text-center text-[10px] text-gray-400">Generated by Supervisor App</p>
+        </div>
+
+        <button onclick="copyWhatsapp()" class="w-full bg-green-500 text-white py-3 rounded mb-3 font-bold"><i class="fab fa-whatsapp"></i> WhatsApp Text</button>
+        <button onclick="downloadImage()" class="w-full bg-blue-600 text-white py-3 rounded mb-3 font-bold"><i class="fas fa-image"></i> Download Image</button>
+        <button onclick="location.reload()" class="w-full border border-gray-400 text-gray-600 py-3 rounded font-bold">New Session</button>
     </div>
 
     <script>
-        // --- STATE MANAGEMENT ---
-        let dropdownData = {};
         let currentUser = "";
+        let dropdowns = {};
+        let entryQueue = []; // Stores all added entries
 
-        // --- INIT ---
-        window.onload = async function() {
+        window.onload = async () => {
             document.getElementById('entryDate').valueAsDate = new Date();
+            
+            // Auto-calc logic for input fields
+            ['len', 'wid', 'hgt', 'qty', 'actionType'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updatePreviewCalc);
+            });
+
             toggleView('loadingView');
-            await fetchDropdowns();
+            await loadDropdowns();
             toggleView('loginView');
         };
 
-        function toggleView(viewId) {
-            ['loadingView', 'loginView', 'formView', 'reportView'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-            document.getElementById(viewId).classList.remove('hidden');
+        function toggleView(id) {
+            ['loadingView', 'loginView', 'formView', 'reportView'].forEach(v => document.getElementById(v).classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
         }
 
-        // --- API CALLS ---
-        async function fetchDropdowns() {
+        async function loadDropdowns() {
             try {
-                const res = await fetch(`${SCRIPT_URL}?action=getLists`);
-                dropdownData = await res.json();
+                const res = await fetch(SCRIPT_URL + '?action=getLists');
+                dropdowns = await res.json();
                 
-                // Populate Supervisor Login
-                const userSelect = document.getElementById('loginUser');
-                dropdownData.supervisors.forEach(u => {
-                    let opt = document.createElement('option');
-                    opt.value = u;
-                    opt.innerText = u;
-                    userSelect.appendChild(opt);
-                });
-            } catch (e) {
-                alert("Error connecting to server. Check URL.");
-            }
+                populateSelect('loginUser', dropdowns.supervisors);
+                populateSelect('department', dropdowns.departments);
+                populateSelect('scaffoldType', dropdowns.scaffoldTypes);
+                populateSelect('elevation', dropdowns.elevations);
+            } catch(e) { alert("Connection Error"); }
+        }
+
+        function populateSelect(id, list) {
+            const el = document.getElementById(id);
+            el.innerHTML = list.map(i => `<option value="${i}">${i}</option>`).join('');
         }
 
         async function handleLogin() {
             const user = document.getElementById('loginUser').value;
             const pass = document.getElementById('loginPass').value;
-            
             toggleView('loadingView');
-            
             try {
                 const res = await fetch(`${SCRIPT_URL}?action=login&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
                 const data = await res.json();
-                
-                if (data.result === 'success') {
+                if(data.result === 'success') {
                     currentUser = user;
+                    document.getElementById('headerSupervisorName').innerText = user;
                     toggleView('formView');
-                    addMeasurementRow(); // Add first empty row
                 } else {
-                    alert("Invalid Credentials");
+                    alert("Wrong Passcode");
                     toggleView('loginView');
                 }
-            } catch (e) {
-                alert("Login Error");
-                toggleView('loginView');
-            }
+            } catch(e) { toggleView('loginView'); alert("Error"); }
         }
 
-        // --- FORM LOGIC ---
-        function addMeasurementRow() {
-            const container = document.getElementById('measurementsContainer');
-            const id = Date.now();
-            
-            let deptOptions = dropdownData.departments.map(d => `<option value="${d}">${d}</option>`).join('');
-            let typeOptions = dropdownData.scaffoldTypes.map(t => `<option value="${t}">${t}</option>`).join('');
-            let elevOptions = dropdownData.elevations.map(e => `<option value="${e}">${e}</option>`).join('');
-
-            const html = `
-            <div id="row-${id}" class="bg-white p-3 rounded shadow-sm border border-gray-200 relative measurement-row">
-                <button onclick="this.parentElement.remove()" class="absolute top-1 right-1 text-red-500 font-bold px-2">&times;</button>
-                
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <select class="border p-2 rounded text-sm w-full field-action">
-                        <option value="ERECTION">Erection</option>
-                        <option value="DISMANTLING">Dismantling</option>
-                    </select>
-                    <select class="border p-2 rounded text-sm w-full field-dept">
-                        <option value="" disabled selected>Dept</option>
-                        ${deptOptions}
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <select class="border p-2 rounded text-sm w-full field-type">
-                        <option value="" disabled selected>Type</option>
-                        ${typeOptions}
-                    </select>
-                    <select class="border p-2 rounded text-sm w-full field-elev">
-                        <option value="" disabled selected>Elevation</option>
-                        ${elevOptions}
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-5 gap-1">
-                    <input type="number" placeholder="L" class="border p-1 rounded text-sm w-full field-l">
-                    <input type="number" placeholder="W" class="border p-1 rounded text-sm w-full field-w">
-                    <input type="number" placeholder="H" class="border p-1 rounded text-sm w-full field-h">
-                    <input type="number" placeholder="Qty" class="border p-1 rounded text-sm w-full field-q">
-                    <input type="text" readonly placeholder="Vol" class="bg-gray-100 border p-1 rounded text-sm w-full text-center font-bold field-vol">
-                </div>
-            </div>`;
-            
-            container.insertAdjacentHTML('beforeend', html);
-
-            // Add event listeners for auto-calc per row
-            const row = document.getElementById(`row-${id}`);
-            const inputs = row.querySelectorAll('input, select');
-            inputs.forEach(inp => inp.addEventListener('input', () => calculateRow(row)));
-        }
-
-        function calculateRow(row) {
-            const l = parseFloat(row.querySelector('.field-l').value) || 0;
-            const w = parseFloat(row.querySelector('.field-w').value) || 0;
-            const h = parseFloat(row.querySelector('.field-h').value) || 0;
-            const q = parseFloat(row.querySelector('.field-q').value) || 0;
-            const action = row.querySelector('.field-action').value;
+        function updatePreviewCalc() {
+            const l = parseFloat(document.getElementById('len').value) || 0;
+            const w = parseFloat(document.getElementById('wid').value) || 0;
+            const h = parseFloat(document.getElementById('hgt').value) || 0;
+            const q = parseFloat(document.getElementById('qty').value) || 0;
+            const type = document.getElementById('actionType').value;
             
             let vol = l * w * h * q;
-            if (action === 'DISMANTLING') vol = vol / 2;
+            if(type === 'DISMANTLING') vol = vol / 2;
             
-            row.querySelector('.field-vol').value = vol.toFixed(2);
+            document.getElementById('previewVol').innerText = vol.toFixed(2);
         }
 
-        async function submitData() {
+        function addToQueue() {
             // Validation
+            const reqFields = ['sheetNo', 'permitNo', 'area', 'location', 'len', 'wid', 'hgt', 'qty'];
+            for(let f of reqFields) {
+                if(!document.getElementById(f).value) return alert("Please fill all fields");
+            }
+
+            // Capture Data
+            const type = document.getElementById('actionType').value;
+            const vol = parseFloat(document.getElementById('previewVol').innerText);
+            
+            const entry = {
+                id: Date.now(),
+                sheetNo: document.getElementById('sheetNo').value,
+                permitNo: document.getElementById('permitNo').value,
+                date: document.getElementById('entryDate').value,
+                area: document.getElementById('area').value,
+                location: document.getElementById('location').value,
+                department: document.getElementById('department').value,
+                scaffoldType: document.getElementById('scaffoldType').value,
+                elevation: document.getElementById('elevation').value,
+                type: type,
+                length: document.getElementById('len').value,
+                width: document.getElementById('wid').value,
+                height: document.getElementById('hgt').value,
+                qty: document.getElementById('qty').value,
+                volume: vol.toFixed(3)
+            };
+
+            entryQueue.push(entry);
+            renderQueue();
+            
+            // Clear inputs EXCEPT Date & Area (optional user preference usually, but prompt said "Again have to add", so we clear major specific fields)
+            ['sheetNo', 'permitNo', 'location', 'len', 'wid', 'hgt', 'qty'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('previewVol').innerText = "0.00";
+        }
+
+        function renderQueue() {
+            const container = document.getElementById('queueContainer');
+            container.innerHTML = '';
+            let totalVol = 0;
+
+            entryQueue.forEach((e, index) => {
+                totalVol += parseFloat(e.volume);
+                const colorClass = e.type === 'ERECTION' ? 'border-l-4 border-blue-500' : 'border-l-4 border-red-500';
+                
+                const html = `
+                <div class="bg-white p-3 shadow-sm rounded ${colorClass} text-sm relative">
+                    <button onclick="removeEntry(${index})" class="absolute top-2 right-2 text-red-400 font-bold">&times;</button>
+                    <div class="font-bold text-gray-800">${e.sheetNo} / ${e.permitNo}</div>
+                    <div class="text-xs text-gray-500 mb-1">${e.location}</div>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="bg-gray-100 px-2 py-1 rounded text-xs font-bold">${e.type.substr(0,1)}</span>
+                        <span class="font-mono text-gray-600 text-xs">${e.length}x${e.width}x${e.height} (${e.qty})</span>
+                        <span class="font-bold text-base">${e.volume} m³</span>
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+
+            document.getElementById('itemCountBadge').innerText = entryQueue.length;
+            document.getElementById('totalVolDisplay').innerText = totalVol.toFixed(2);
+        }
+
+        function removeEntry(index) {
+            entryQueue.splice(index, 1);
+            renderQueue();
+        }
+
+        async function submitAll() {
+            if(entryQueue.length === 0) return alert("No entries added yet.");
             const manpower = document.getElementById('totalManpower').value;
-            if(!manpower) return alert("Please enter Total Manpower");
+            if(!manpower) return alert("Enter Total Manpower");
 
             toggleView('loadingView');
 
-            // Gather Data
-            const rows = document.querySelectorAll('.measurement-row');
-            let measurements = [];
-            let totalErection = 0;
-            let totalDismantling = 0;
-
-            rows.forEach(r => {
-                let vol = parseFloat(r.querySelector('.field-vol').value) || 0;
-                let action = r.querySelector('.field-action').value;
-                
-                if(action === 'ERECTION') totalErection += vol;
-                else totalDismantling += vol;
-
-                measurements.push({
-                    type: action,
-                    department: r.querySelector('.field-dept').value,
-                    scaffoldType: r.querySelector('.field-type').value,
-                    elevation: r.querySelector('.field-elev').value,
-                    length: r.querySelector('.field-l').value,
-                    width: r.querySelector('.field-w').value,
-                    height: r.querySelector('.field-h').value,
-                    qty: r.querySelector('.field-q').value
-                });
-            });
-
             const payload = {
-                header: {
-                    sheetNo: document.getElementById('sheetNo').value,
-                    permitNo: document.getElementById('permitNo').value,
-                    date: document.getElementById('entryDate').value,
-                    area: document.getElementById('area').value,
-                    location: document.getElementById('location').value,
-                    supervisor: currentUser,
-                    manpower: manpower
-                },
-                measurements: measurements
+                supervisor: currentUser,
+                entries: entryQueue
             };
 
-            // Calculate Finals for Report
-            const totalManhours = manpower * 10;
-            const productivity = totalManhours > 0 ? (totalErection + totalDismantling) / totalManhours : 0;
-
-            // Submit to Google Sheet
             try {
-                const res = await fetch(SCRIPT_URL, {
+                await fetch(SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 });
-                
-                // Populate Report View
-                document.getElementById('reportDate').innerText = payload.header.date;
-                document.getElementById('reportSupervisor').innerText = currentUser;
-                document.getElementById('reportArea').innerText = payload.header.area;
-                document.getElementById('reportErection').innerText = totalErection.toFixed(2);
-                document.getElementById('reportDismantling').innerText = totalDismantling.toFixed(2);
-                document.getElementById('reportManpower').innerText = manpower;
-                document.getElementById('reportManhours').innerText = totalManhours;
-                document.getElementById('reportProductivity').innerText = productivity.toFixed(2);
 
-                toggleView('reportView');
+                generateReport(manpower);
 
-            } catch (e) {
+            } catch(e) {
                 alert("Submission Failed");
                 toggleView('formView');
             }
         }
 
-        // --- REPORTING ---
-        function copyToWhatsapp() {
-            const date = document.getElementById('reportDate').innerText;
-            const sup = document.getElementById('reportSupervisor').innerText;
-            const area = document.getElementById('reportArea').innerText;
-            const ere = document.getElementById('reportErection').innerText;
-            const dis = document.getElementById('reportDismantling').innerText;
-            const mh = document.getElementById('reportManhours').innerText;
-            const prod = document.getElementById('reportProductivity').innerText;
-
-            const text = `*JOB COMPLETION REPORT*\nDate: ${date}\nSupervisor: ${sup}\nArea: ${area}\n\nTotal Erection: ${ere} m3\nTotal Dismantling: ${dis} m3\nTotal Manhours: ${mh}\nProductivity: ${prod}\n\nSubmitted via Web App`;
-
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Report copied to clipboard! Opening WhatsApp...");
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        function generateReport(manpower) {
+            let totErec = 0, totDism = 0;
+            entryQueue.forEach(e => {
+                if(e.type === 'ERECTION') totErec += parseFloat(e.volume);
+                else totDism += parseFloat(e.volume);
             });
+
+            const manhours = manpower * 10;
+            const prod = manhours > 0 ? (totErec + totDism) / manhours : 0;
+
+            document.getElementById('repDate').innerText = entryQueue[0].date;
+            document.getElementById('repSup').innerText = currentUser;
+            document.getElementById('repCount').innerText = entryQueue.length;
+            document.getElementById('repErec').innerText = totErec.toFixed(2);
+            document.getElementById('repDism').innerText = totDism.toFixed(2);
+            document.getElementById('repManpower').innerText = manpower + " (" + manhours + " Hrs)";
+            document.getElementById('repProd').innerText = prod.toFixed(2);
+
+            toggleView('reportView');
         }
 
-        function downloadJpeg() {
-            const element = document.getElementById("jpegCapture");
-            html2canvas(element).then(canvas => {
+        function copyWhatsapp() {
+            const s = document.getElementById('repSup').innerText;
+            const e = document.getElementById('repErec').innerText;
+            const d = document.getElementById('repDism').innerText;
+            const p = document.getElementById('repProd').innerText;
+            const txt = `*JOB REPORT*\nSup: ${s}\nErection: ${e}\nDismantling: ${d}\nProductivity: ${p}\n\nSubmitted via App`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+        }
+
+        function downloadImage() {
+            html2canvas(document.getElementById("jpegCapture")).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `Report_${Date.now()}.jpg`;
+                link.download = 'Report.jpg';
                 link.href = canvas.toDataURL("image/jpeg");
                 link.click();
             });

@@ -1,405 +1,383 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Job Completion Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCAFFOLDING REPORT SYSTEM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+  <style>
+    body { background-color: #f3f4f6; font-family: 'Segoe UI', sans-serif; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .loader { border-top-color: #3b82f6; animation: spinner 1.5s linear infinite; }
+    @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
-    <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; }
-        input, select { transition: all 0.2s; }
-        input:focus, select:focus { border-color: #2563eb; outline: none; ring: 2px; ring-color: #bfdbfe; }
-        .btn-press:active { transform: scale(0.98); }
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .input-field { width: 100%; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 14px; background-color: #fff; }
-    </style>
+    #report-container {
+      width: 297mm;
+      background: white;
+      padding: 10mm;
+      display: none; 
+      position: absolute; 
+      top: 0; left: 0; z-index: -1;
+      color: #000;
+    }
+    .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+    .report-table th, .report-table td { 
+      border: 0.5pt solid #000; 
+      padding: 4px 2px; 
+      text-align: center; 
+      font-size: 9px; 
+      word-wrap: break-word; 
+    }
+    .report-header { background-color: #f0f0f0; font-weight: bold; }
+    .summary-section { display: flex; justify-content: space-between; margin-bottom: 10px; border: 1px solid #000; padding: 10px; }
+    .stat-box { font-size: 11px; line-height: 1.4; }
+  </style>
 </head>
-<body class="text-slate-800 pb-32">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-    <script>
-        // *** PASTE YOUR GOOGLE SCRIPT WEB APP URL HERE ***
-        const API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzIDUZhawrZmd_8qvqDclP-E6oQt32HvXSQQQq_hCs7Bz_z-6MuiPwkxovKibJvrm-s/exec'; 
-    </script>
-
-    <div id="loader" class="fixed inset-0 bg-white/90 z-50 flex flex-col justify-center items-center hidden">
-        <div class="loader w-12 h-12 border-4 mb-4"></div>
-        <p class="font-semibold text-slate-600" id="loader-msg">Syncing Data...</p>
+  <div id="app" class="w-full max-w-md">
+    <div id="loading" class="text-center py-10">
+      <div class="loader rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>
+      <h2 class="text-xl font-semibold text-gray-700">Loading System...</h2>
     </div>
 
-    <div id="view-login" class="min-h-screen flex flex-col justify-center p-6">
-        <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
-            <h1 class="text-2xl font-bold text-center mb-6 text-slate-800">Supervisor Portal</h1>
-            <div class="space-y-4">
-                <select id="auth-user" class="input-field"><option>Loading...</option></select>
-                <input type="password" id="auth-pass" class="input-field" placeholder="Passcode">
-                <button onclick="app.login()" class="w-full bg-blue-900 text-white font-bold py-3 rounded-lg shadow hover:bg-blue-800 btn-press">LOGIN</button>
-            </div>
-        </div>
+    <div id="login-screen" class="card p-6 hidden">
+      <h2 class="text-2xl font-bold text-center text-blue-800 mb-6">Supervisor Login</h2>
+      <div class="space-y-4">
+        <select id="login-username" class="w-full rounded-md border p-3 bg-gray-50"><option value="">Select Name</option></select>
+        <input type="password" id="login-passcode" class="w-full rounded-md border p-3 bg-gray-50" placeholder="Passcode">
+        <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold">LOGIN</button>
+      </div>
     </div>
 
-    <div id="view-app" class="hidden">
-        <div class="bg-slate-900 text-white px-4 py-3 shadow sticky top-0 z-40 flex justify-between items-center">
-            <div>
-                <h2 class="font-bold text-sm">JOB TRACKER v2.0</h2>
-                <div class="text-[10px] text-slate-300"><i class="fas fa-user"></i> <span id="display-user"></span></div>
-            </div>
-            <div class="bg-slate-700 px-3 py-1 rounded-full text-xs font-mono">Queue: <span id="queue-count">0</span></div>
+    <div id="form-screen" class="hidden">
+      <div class="card p-4 mb-4">
+        <div class="flex justify-between items-center mb-4">
+          <span class="text-xs font-bold text-gray-500" id="display-supervisor"></span>
+          <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded" id="entry-count">Entries: 0</span>
         </div>
+        
+        <form id="job-form" class="space-y-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-[10px] font-bold">DATE</label><input type="date" id="f-date" class="w-full border rounded p-2 text-sm"></div>
+            <div><label class="text-[10px] font-bold">SHEET NO</label><input type="text" id="f-sheet" class="w-full border rounded p-2 text-sm"></div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2">
+            <select id="f-area" class="border rounded p-2 text-sm"><option value="">Select Area</option></select>
+            <select id="f-dept" class="border rounded p-2 text-sm"><option value="">Select Dept</option></select>
+          </div>
 
-        <div class="max-w-xl mx-auto p-4">
-            
-            <div class="bg-white rounded-lg shadow border border-slate-200 overflow-hidden mb-6">
-                <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                    <span class="font-bold text-slate-700 text-xs uppercase">Entry Details</span>
-                    <button onclick="app.clearForm()" class="text-blue-600 text-xs font-bold">Reset</button>
-                </div>
-                
-                <div class="p-4 space-y-3">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" id="inp-sheet" placeholder="Sheet No." class="input-field bg-yellow-50 border-yellow-200">
-                        <input type="text" id="inp-permit" placeholder="Permit No." class="input-field bg-yellow-50 border-yellow-200">
-                    </div>
+          <select id="f-jobtype" class="w-full border rounded p-2 text-sm">
+            <option value="">Job Type</option>
+            <option value="Erection">Erection</option>
+            <option value="Dismantling">Dismantling</option>
+            <option value="Materials Shifting">Materials Shifting</option>
+            <option value="Unloading">Unloading</option>
+          </select>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" id="inp-tag" placeholder="Tag No." class="input-field">
-                        <select id="inp-engineer" class="input-field"><option value="">Select Engineer</option></select>
-                    </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="f-tag" class="border rounded p-2 text-sm" placeholder="Tag No.">
+            <input type="text" id="f-location" class="border rounded p-2 text-sm" placeholder="Work Location">
+          </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="date" id="inp-date" class="input-field">
-                        <input type="text" id="inp-area" placeholder="Area" class="input-field">
-                    </div>
+          <div class="grid grid-cols-2 gap-2">
+            <select id="f-scaffold" class="border rounded p-2 text-sm"><option value="">Scaffold Type</option></select>
+            <select id="f-elevation" class="border rounded p-2 text-sm"><option value="">Elevation</option></select>
+          </div>
 
-                    <input type="text" id="inp-loc" placeholder="Specific Location" class="input-field">
+          <div class="bg-gray-100 p-2 rounded grid grid-cols-4 gap-1">
+            <input type="number" id="f-l" placeholder="L" class="border rounded p-1 text-center text-sm" oninput="calcVol()">
+            <input type="number" id="f-w" placeholder="W" class="border rounded p-1 text-center text-sm" oninput="calcVol()">
+            <input type="number" id="f-h" placeholder="H" class="border rounded p-1 text-center text-sm" oninput="calcVol()">
+            <input type="number" id="f-nos" placeholder="Nos" class="border rounded p-1 text-center text-sm" oninput="calcVol()">
+          </div>
+          <div class="text-right text-xs font-bold text-blue-700">Volume: <span id="display-vol">0.00</span> m³</div>
 
-                    <div class="h-px bg-slate-100 my-2"></div>
+          <div>
+            <label class="text-[10px] font-bold">SCAFFOLD PHOTO</label>
+            <input type="file" id="f-photo" accept="image/*" class="w-full text-xs border p-1 rounded bg-white">
+          </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <select id="inp-type" class="input-field font-semibold text-blue-900">
-                            <option value="ERECTION">ERECTION</option>
-                            <option value="DISMANTLING">DISMANTLING</option>
-                        </select>
-                        <select id="inp-dept" class="input-field"><option value="">Select Dept</option></select>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <select id="inp-scaffold" class="input-field"><option value="">Scaffold Type</option></select>
-                        <select id="inp-elev" class="input-field"><option value="">Elevation</option></select>
-                    </div>
-
-                    <div class="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
-                        <div class="grid grid-cols-4 gap-2 mb-2">
-                            <input type="number" id="inp-l" class="input-field text-center p-1" placeholder="L">
-                            <input type="number" id="inp-w" class="input-field text-center p-1" placeholder="W">
-                            <input type="number" id="inp-h" class="input-field text-center p-1" placeholder="H">
-                            <input type="number" id="inp-q" class="input-field text-center p-1" placeholder="Qty">
-                        </div>
-                        <div class="flex justify-between items-center border-t border-slate-200 pt-2">
-                            <span class="text-xs font-bold text-slate-500">VOLUME</span>
-                            <span class="text-lg font-bold text-slate-800"><span id="calc-vol">0.00</span> m³</span>
-                        </div>
-                    </div>
-
-                    <div class="border-2 border-dashed border-slate-300 rounded p-3 text-center cursor-pointer hover:bg-slate-50" onclick="document.getElementById('inp-file').click()">
-                        <input type="file" id="inp-file" accept="image/*" class="hidden" onchange="app.handleFileSelect(this)">
-                        <i class="fas fa-camera text-slate-400 text-xl mb-1"></i>
-                        <p class="text-xs text-slate-500" id="file-label">Tap to attach Scaffold Photo</p>
-                    </div>
-
-                    <button onclick="app.addEntry()" class="w-full bg-slate-800 text-white py-3 rounded font-bold hover:bg-black btn-press mt-2">
-                        <i class="fas fa-plus-circle"></i> ADD ENTRY
-                    </button>
-                </div>
-            </div>
-
-            <div id="queue-container" class="space-y-3 mb-10"></div>
-        </div>
-
-        <div class="fixed bottom-0 left-0 w-full bg-white border-t p-4 z-40 shadow-lg">
-            <div class="max-w-xl mx-auto flex gap-3 items-end">
-                <div class="flex-1">
-                    <label class="text-[10px] font-bold text-slate-500">MANPOWER</label>
-                    <input type="number" id="total-manpower" class="input-field text-center font-bold" placeholder="0">
-                </div>
-                <div class="flex-[2]">
-                    <button onclick="app.submitAll()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold uppercase shadow btn-press">
-                        Submit All
-                    </button>
-                </div>
-            </div>
-        </div>
+          <div class="flex space-x-2 pt-2">
+             <button type="button" onclick="addEntry()" class="flex-1 bg-green-600 text-white py-3 rounded font-bold">ADD ENTRY</button>
+             <button type="button" onclick="goToFinalize()" class="flex-1 bg-blue-700 text-white py-3 rounded font-bold">FINISH</button>
+          </div>
+        </form>
+      </div>
+      <div id="entry-list" class="space-y-2 pb-10"></div>
     </div>
 
-    <div id="view-report" class="hidden fixed inset-0 z-50 bg-slate-900/95 overflow-y-auto p-4">
-        <div class="max-w-md mx-auto mt-10">
-            <div id="report-card" class="bg-white p-6 shadow-2xl">
-                <div class="border-b-2 border-slate-800 pb-4 mb-4 flex justify-between">
-                    <div>
-                        <h1 class="text-xl font-black text-slate-900">JOB SUMMARY</h1>
-                        <p class="text-xs text-slate-500 uppercase">Supervisor Report</p>
-                    </div>
-                    <div class="text-right text-xs">
-                        <div class="text-slate-400">Date</div>
-                        <div class="font-bold" id="rpt-date">--</div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4 mb-4 text-xs">
-                    <div><span class="text-slate-400 block">Supervisor</span><span class="font-bold" id="rpt-sup">--</span></div>
-                    <div><span class="text-slate-400 block">Entries</span><span class="font-bold" id="rpt-items">0</span></div>
-                </div>
-
-                <div class="space-y-2 mb-4 text-sm">
-                    <div class="flex justify-between border-b border-dashed pb-1">
-                        <span>Erection Volume</span><span class="font-bold text-blue-700"><span id="rpt-erection">0</span> m³</span>
-                    </div>
-                    <div class="flex justify-between border-b border-dashed pb-1">
-                        <span>Dismantling Volume</span><span class="font-bold text-red-600"><span id="rpt-dismantling">0</span> m³</span>
-                    </div>
-                    <div class="flex justify-between pt-1">
-                        <span>Manpower / Hours</span><span class="font-bold"><span id="rpt-mp">0</span> / <span id="rpt-mh">0</span></span>
-                    </div>
-                </div>
-
-                <div class="bg-slate-900 text-white p-2 text-center rounded">
-                    <div class="text-[10px] uppercase text-slate-400">Productivity</div>
-                    <div class="text-2xl font-black" id="rpt-prod">0.00</div>
-                </div>
-            </div>
-
-            <div class="mt-4 space-y-3">
-                <button onclick="app.shareWhatsapp()" class="w-full bg-green-500 text-white py-3 rounded font-bold btn-press"><i class="fab fa-whatsapp"></i> WhatsApp</button>
-                <button onclick="app.downloadImage()" class="w-full bg-blue-600 text-white py-3 rounded font-bold btn-press"><i class="fas fa-download"></i> Save Image</button>
-                <button onclick="location.reload()" class="w-full border border-white/30 text-white py-3 rounded font-bold">Close</button>
-            </div>
-        </div>
+    <div id="finalize-screen" class="hidden card p-6">
+       <h3 class="font-bold mb-4 border-b pb-2">Final Confirmation</h3>
+       <input type="text" id="final-eng-name" class="w-full border p-3 rounded mb-3" placeholder="AMNS Engineer Name">
+       <input type="number" id="final-manpower" class="w-full border p-3 rounded mb-4" placeholder="Total Manpower">
+       <button onclick="submitAll()" id="btn-submit-all" class="w-full bg-indigo-600 text-white p-4 rounded font-bold shadow-lg">SUBMIT & DOWNLOAD REPORT</button>
     </div>
 
-    <script>
-        const app = {
-            data: { user: '', entries: [], dropdowns: {} },
-            tempImage: { base64: null, mime: null }, // Stores current image
+    <div id="success-screen" class="hidden card p-6 text-center">
+       <i class="fas fa-check-circle text-green-500 text-6xl mb-4"></i>
+       <h2 class="text-xl font-bold mb-4">Report Generated!</h2>
+       <button onclick="copyWhatsAppText()" class="w-full bg-blue-500 text-white p-3 rounded font-bold mb-2">COPY WHATSAPP TEXT</button>
+       <button onclick="shareWhatsApp()" class="w-full bg-green-500 text-white p-3 rounded font-bold mb-4">SHARE ON WHATSAPP</button>
+       <button onclick="location.reload()" class="text-gray-500 text-sm underline">Start New Session</button>
+    </div>
+  </div>
 
-            init: async () => {
-                document.getElementById('inp-date').valueAsDate = new Date();
-                ['inp-l', 'inp-w', 'inp-h', 'inp-q', 'inp-type'].forEach(id => {
-                    document.getElementById(id).addEventListener('input', app.calculateVolume);
-                });
+  <div id="report-container">
+    <div style="text-align: center; margin-bottom: 10px;">
+      <h1 style="margin:0; font-size: 20px;">SCAFFOLDING JOB COMPLETION REPORT</h1>
+    </div>
+    
+    <div class="summary-section">
+      <div class="stat-box">
+        <strong>DATE:</strong> <span id="rpt-date"></span><br>
+        <strong>SUPERVISOR:</strong> <span id="rpt-sup-name"></span><br>
+        <strong>AMNS ENGINEER:</strong> <span id="rpt-eng-name"></span>
+      </div>
+      <div class="stat-box">
+        <strong>TOTAL MANPOWER:</strong> <span id="rpt-mp"></span><br>
+        <strong>TOTAL MANHOURS:</strong> <span id="rpt-mh"></span><br>
+        <strong>PRODUCTIVITY:</strong> <span id="rpt-prod"></span>
+      </div>
+      <div class="stat-box">
+        <strong>TOTAL ERECTION:</strong> <span id="rpt-ere"></span> m³<br>
+        <strong>TOTAL DISMANTLING:</strong> <span id="rpt-dis"></span> m³<br>
+        <strong>EQUIVALENT VOL:</strong> <span id="rpt-eqv"></span> m³
+      </div>
+    </div>
 
-                app.toggleLoader(true);
-                try {
-                    const res = await fetch(`${API_ENDPOINT}?action=getMeta`);
-                    const json = await res.json();
-                    app.data.dropdowns = json;
-                    app.populateDropdown('auth-user', json.supervisors);
-                    app.populateDropdown('inp-dept', json.departments);
-                    app.populateDropdown('inp-scaffold', json.types);
-                    app.populateDropdown('inp-elev', json.elevations);
-                    app.populateDropdown('inp-engineer', json.engineers); // Populate Engineers
-                } catch (e) { alert("Init Error"); }
-                app.toggleLoader(false);
-            },
+    <table class="report-table">
+      <thead class="report-header">
+        <tr>
+          <th style="width:30px">SL</th>
+          <th style="width:60px">Sheet No</th>
+          <th style="width:60px">Date</th>
+          <th style="width:60px">Tag No</th>
+          <th style="width:60px">Area</th>
+          <th style="width:70px">Dept</th>
+          <th style="width:70px">Job Type</th>
+          <th style="width:80px">Location</th>
+          <th style="width:70px">Scaffold</th>
+          <th style="width:50px">Elev.</th>
+          <th style="width:70px">Sup Name</th>
+          <th style="width:70px">Eng Name</th>
+          <th style="width:30px">L</th>
+          <th style="width:30px">W</th>
+          <th style="width:30px">H</th>
+          <th style="width:30px">Nos</th>
+          <th style="width:50px">Volume</th>
+        </tr>
+      </thead>
+      <tbody id="rpt-table-body"></tbody>
+    </table>
 
-            login: async () => {
-                const user = document.getElementById('auth-user').value;
-                const pass = document.getElementById('auth-pass').value;
-                app.toggleLoader(true);
-                try {
-                    const res = await fetch(`${API_ENDPOINT}?action=login&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
-                    const json = await res.json();
-                    if (json.status === 'success') {
-                        app.data.user = json.user;
-                        document.getElementById('display-user').innerText = json.user;
-                        document.getElementById('view-login').classList.add('hidden');
-                        document.getElementById('view-app').classList.remove('hidden');
-                    } else alert("Invalid Credentials");
-                } catch (e) { alert("Network Error"); }
-                app.toggleLoader(false);
-            },
+    <div style="margin-top: 40px; display: flex; justify-content: space-around;">
+      <div style="text-align: center; width: 250px; border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">
+        <strong>Supervisor Signature</strong>
+      </div>
+      <div style="text-align: center; width: 250px; border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">
+        <strong>AMNS Engineer Signature</strong>
+      </div>
+    </div>
+  </div>
 
-            calculateVolume: () => {
-                const vals = ['l', 'w', 'h', 'q'].map(k => parseFloat(document.getElementById(`inp-${k}`).value) || 0);
-                const type = document.getElementById('inp-type').value;
-                let vol = vals.reduce((a, b) => a * b, 1); // l*w*h*q
-                if(vals.includes(0)) vol = 0; // if any is 0
-                if (type === 'DISMANTLING') vol = vol / 2;
-                document.getElementById('calc-vol').innerText = vol.toFixed(2);
-                return vol;
-            },
+  <script>
+    const APP_URL = "https://script.google.com/macros/s/AKfycbxkzRv-FufgO4unbMAMmKrKQ36tdLttDa5UblizEq7p0uFs1fcUl3SKeVmeuPVdo7PfOg/exec";
+    let sessionData = { supervisor: '', entries: [], date: '', stats: {} };
 
-            handleFileSelect: (input) => {
-                if (input.files && input.files[0]) {
-                    const file = input.files[0];
-                    const reader = new FileReader();
-                    
-                    document.getElementById('file-label').innerText = "Compressing: " + file.name;
-                    
-                    reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            // Resize logic
-                            const canvas = document.createElement('canvas');
-                            const MAX_WIDTH = 800; // Resize to max 800px width
-                            const scaleSize = MAX_WIDTH / img.width;
-                            canvas.width = MAX_WIDTH;
-                            canvas.height = img.height * scaleSize;
-                            
-                            const ctx = canvas.getContext("2d");
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            
-                            const dataUrl = canvas.toDataURL("image/jpeg", 0.6); // 60% quality
-                            app.tempImage.base64 = dataUrl.split(',')[1]; // Remove header
-                            app.tempImage.mime = "image/jpeg";
-                            
-                            document.getElementById('file-label').innerText = "Photo Attached & Compressed";
-                            document.getElementById('file-label').classList.add("text-green-600", "font-bold");
-                        };
-                        img.src = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                }
-            },
+    async function apiCall(action, payload = {}) {
+      const res = await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action, ...payload }) });
+      return await res.json();
+    }
 
-            addEntry: () => {
-                const fields = ['sheet', 'permit', 'tag', 'engineer', 'loc', 'area', 'dept', 'l', 'w', 'h', 'q'];
-                for (let f of fields) {
-                    if (!document.getElementById(`inp-${f}`).value) return alert("Missing: " + f.toUpperCase());
-                }
+    window.onload = async function() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('f-date').value = today;
+      sessionData.date = today;
+      const data = await apiCall('getAppData');
+      if(data) {
+        fillDrop('login-username', data.users);
+        fillDrop('f-area', data.areas);
+        fillDrop('f-dept', data.departments);
+        fillDrop('f-scaffold', data.scaffoldingTypes);
+        fillDrop('f-elevation', data.elevations);
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('login-screen').classList.remove('hidden');
+      }
+    };
 
-                const entry = {
-                    id: Date.now(),
-                    sheetNo: document.getElementById('inp-sheet').value,
-                    permitNo: document.getElementById('inp-permit').value,
-                    tagNo: document.getElementById('inp-tag').value,
-                    engineer: document.getElementById('inp-engineer').value,
-                    date: document.getElementById('inp-date').value,
-                    area: document.getElementById('inp-area').value,
-                    location: document.getElementById('inp-loc').value,
-                    department: document.getElementById('inp-dept').value,
-                    scaffoldType: document.getElementById('inp-scaffold').value,
-                    elevation: document.getElementById('inp-elev').value,
-                    type: document.getElementById('inp-type').value,
-                    length: document.getElementById('inp-l').value,
-                    width: document.getElementById('inp-w').value,
-                    height: document.getElementById('inp-h').value,
-                    qty: document.getElementById('inp-q').value,
-                    volume: app.calculateVolume(),
-                    image: app.tempImage.base64, // Attach processed image
-                    mimeType: app.tempImage.mime
-                };
+    function fillDrop(id, list) {
+      const el = document.getElementById(id);
+      list.forEach(i => el.innerHTML += `<option value="${i}">${i}</option>`);
+    }
 
-                app.data.entries.push(entry);
-                app.renderQueue();
+    async function handleLogin() {
+      const user = document.getElementById('login-username').value;
+      const pass = document.getElementById('login-passcode').value;
+      const res = await apiCall('login', { username: user, passcode: pass });
+      if(res?.valid) {
+        sessionData.supervisor = user;
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('form-screen').classList.remove('hidden');
+        document.getElementById('display-supervisor').innerText = "Sup: " + user;
+      } else alert("Invalid Passcode");
+    }
 
-                // Clear Specific Fields
-                ['inp-sheet', 'inp-permit', 'inp-tag', 'inp-loc', 'inp-l', 'inp-w', 'inp-h', 'inp-q', 'inp-file'].forEach(id => document.getElementById(id).value = '');
-                
-                // Reset Image State
-                app.tempImage = { base64: null, mime: null };
-                document.getElementById('file-label').innerText = "Tap to attach Scaffold Photo";
-                document.getElementById('file-label').classList.remove("text-green-600", "font-bold");
-                document.getElementById('calc-vol').innerText = "0.00";
-            },
+    function calcVol() {
+      const l = parseFloat(document.getElementById('f-l').value) || 0;
+      const w = parseFloat(document.getElementById('f-w').value) || 0;
+      const h = parseFloat(document.getElementById('f-h').value) || 0;
+      const n = parseFloat(document.getElementById('f-nos').value) || 0;
+      const v = l * w * h * n;
+      document.getElementById('display-vol').innerText = v.toFixed(2);
+      return v;
+    }
 
-            renderQueue: () => {
-                const box = document.getElementById('queue-container');
-                box.innerHTML = '';
-                app.data.entries.forEach((e, idx) => {
-                    const isE = e.type === 'ERECTION';
-                    const html = `
-                    <div class="bg-white p-3 rounded shadow border-l-4 ${isE ? 'border-blue-600' : 'border-red-600'} relative">
-                        <button onclick="app.removeEntry(${idx})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold">&times;</button>
-                        <div class="flex items-center gap-2 mb-1">
-                            ${e.image ? '<i class="fas fa-image text-green-600"></i>' : ''}
-                            <div class="font-bold text-sm text-slate-800">${e.sheetNo} / ${e.permitNo}</div>
-                        </div>
-                        <div class="text-xs text-slate-500 mb-1">Tag: ${e.tagNo} | Eng: ${e.engineer}</div>
-                        <div class="flex justify-between items-center text-sm border-t pt-1 mt-1">
-                            <span class="${isE ? 'text-blue-700' : 'text-red-700'} font-bold text-[10px]">${e.type}</span>
-                            <span class="font-bold">${e.volume.toFixed(3)} m³</span>
-                        </div>
-                    </div>`;
-                    box.insertAdjacentHTML('beforeend', html);
-                });
-                document.getElementById('queue-count').innerText = app.data.entries.length;
-            },
+    function toB64(file) { return new Promise((res) => { const r = new FileReader(); r.readAsDataURL(file); r.onload = () => res(r.result); }); }
 
-            removeEntry: (i) => {
-                app.data.entries.splice(i, 1);
-                app.renderQueue();
-            },
+    async function addEntry() {
+      const type = document.getElementById('f-jobtype').value;
+      if(!type) return alert("Select Job Type");
+      
+      const photoFile = document.getElementById('f-photo').files[0];
+      const photoData = photoFile ? await toB64(photoFile) : null;
 
-            submitAll: async () => {
-                if (app.data.entries.length === 0) return alert("Queue Empty");
-                const mp = document.getElementById('total-manpower').value;
-                if (!mp) return alert("Enter Manpower");
+      const entry = {
+        sheetNo: document.getElementById('f-sheet').value || "-",
+        date: document.getElementById('f-date').value,
+        tagNo: document.getElementById('f-tag').value || "-",
+        area: document.getElementById('f-area').value,
+        dept: document.getElementById('f-dept').value,
+        jobType: type,
+        workLoc: document.getElementById('f-location').value || "-",
+        scafType: document.getElementById('f-scaffold').value,
+        elev: document.getElementById('f-elevation').value,
+        l: document.getElementById('f-l').value || 0,
+        w: document.getElementById('f-w').value || 0,
+        h: document.getElementById('f-h').value || 0,
+        nos: document.getElementById('f-nos').value || 0,
+        vol: calcVol(),
+        image: photoData // PHOTO DATA SAVED IN SESSION
+      };
+      
+      sessionData.entries.push(entry);
+      document.getElementById('entry-count').innerText = "Entries: " + sessionData.entries.length;
+      renderMiniList();
+      document.getElementById('job-form').reset();
+      document.getElementById('f-date').value = sessionData.date;
+    }
 
-                document.getElementById('loader-msg').innerText = "Uploading Data & Photos...";
-                app.toggleLoader(true);
+    function renderMiniList() {
+      const list = document.getElementById('entry-list');
+      list.innerHTML = sessionData.entries.map((e, i) => `
+        <div class="bg-white p-2 border rounded flex justify-between text-xs">
+          <span>${e.jobType}: ${e.vol.toFixed(2)}m³</span>
+          <button type="button" onclick="sessionData.entries.splice(${i},1);renderMiniList();" class="text-red-500">Remove</button>
+        </div>
+      `).join('');
+    }
 
-                try {
-                    const res = await fetch(API_ENDPOINT, {
-                        method: 'POST',
-                        body: JSON.stringify({ supervisor: app.data.user, entries: app.data.entries })
-                    });
-                    const json = await res.json();
-                    
-                    if (json.status === 'success') {
-                        app.generateReport(mp);
-                    } else alert("Error: " + json.message);
-                } catch (e) { alert("Submission Failed"); }
-                app.toggleLoader(false);
-            },
+    function goToFinalize() {
+      if(!sessionData.entries.length) return alert("No entries added!");
+      document.getElementById('form-screen').classList.add('hidden');
+      document.getElementById('finalize-screen').classList.remove('hidden');
+    }
 
-            generateReport: (mp) => {
-                let e = 0, d = 0;
-                app.data.entries.forEach(x => x.type === 'ERECTION' ? e += parseFloat(x.volume) : d += parseFloat(x.volume));
-                const mh = mp * 10;
-                const prod = mh > 0 ? (e + d) / mh : 0;
+    async function submitAll() {
+      const mp = parseFloat(document.getElementById('final-manpower').value);
+      const eng = document.getElementById('final-eng-name').value;
+      if(!mp || !eng) return alert("Enter Manpower and Engineer Name");
 
-                document.getElementById('rpt-date').innerText = app.data.entries[0].date;
-                document.getElementById('rpt-sup').innerText = app.data.user;
-                document.getElementById('rpt-items').innerText = app.data.entries.length;
-                document.getElementById('rpt-erection').innerText = e.toFixed(2);
-                document.getElementById('rpt-dismantling').innerText = d.toFixed(2);
-                document.getElementById('rpt-mp').innerText = mp;
-                document.getElementById('rpt-mh').innerText = mh;
-                document.getElementById('rpt-prod').innerText = prod.toFixed(2);
+      const btn = document.getElementById('btn-submit-all');
+      btn.innerText = "Submitting..."; btn.disabled = true;
 
-                document.getElementById('view-report').classList.remove('hidden');
-            },
+      const ere = sessionData.entries.filter(e => e.jobType === "Erection").reduce((a, b) => a + b.vol, 0);
+      const dis = sessionData.entries.filter(e => e.jobType === "Dismantling").reduce((a, b) => a + b.vol, 0);
+      const mh = mp * 12;
+      const eqv = ere + (dis / 2);
+      const prod = mh > 0 ? (eqv / mh).toFixed(3) : 0;
+      sessionData.stats = { mp, eng, mh, ere, dis, eqv, prod };
 
-            shareWhatsapp: () => {
-                const [s, e, d, p] = ['rpt-sup', 'rpt-erection', 'rpt-dismantling', 'rpt-prod'].map(id => document.getElementById(id).innerText);
-                const txt = `*SITE REPORT*\nSup: ${s}\nErection: ${e}\nDismantling: ${d}\nProductivity: ${p}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
-            },
+      const res = await apiCall('submit', { payload: { 
+        supervisor: sessionData.supervisor, 
+        global: { amnsEngName: eng, totalManpower: mp, date: sessionData.date }, 
+        entries: sessionData.entries 
+      }});
 
-            downloadImage: () => {
-                html2canvas(document.getElementById('report-card')).then(c => {
-                    const a = document.createElement('a');
-                    a.download = 'Report.jpg'; a.href = c.toDataURL("image/jpeg"); a.click();
-                });
-            },
-            
-            // Utils
-            populateDropdown: (id, list) => {
-                if(!list) return;
-                const el = document.getElementById(id);
-                el.innerHTML = '<option value="">Select...</option>' + list.map(i => `<option value="${i}">${i}</option>`).join('');
-            },
-            toggleLoader: (s) => document.getElementById('loader').classList[s ? 'remove' : 'add']('hidden'),
-            clearForm: () => {
-                document.querySelectorAll('input').forEach(i => i.value = '');
-                app.data.entries = [];
-                app.renderQueue();
-            }
-        };
-        window.onload = app.init;
-    </script>
+      if(res.success) {
+        await drawReport();
+        document.getElementById('finalize-screen').classList.add('hidden');
+        document.getElementById('success-screen').classList.remove('hidden');
+      } else {
+        alert("Submission Failed");
+        btn.innerText = "SUBMIT & DOWNLOAD REPORT"; btn.disabled = false;
+      }
+    }
+
+    async function drawReport() {
+      const s = sessionData.stats;
+      document.getElementById('rpt-date').innerText = sessionData.date;
+      document.getElementById('rpt-sup-name').innerText = sessionData.supervisor;
+      document.getElementById('rpt-eng-name').innerText = s.eng;
+      document.getElementById('rpt-mp').innerText = s.mp;
+      document.getElementById('rpt-mh').innerText = s.mh;
+      document.getElementById('rpt-ere').innerText = s.ere.toFixed(2);
+      document.getElementById('rpt-dis').innerText = s.dis.toFixed(2);
+      document.getElementById('rpt-eqv').innerText = s.eqv.toFixed(2);
+      document.getElementById('rpt-prod').innerText = s.prod;
+
+      const body = document.getElementById('rpt-table-body');
+      body.innerHTML = sessionData.entries.map((e, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td>${e.sheetNo}</td>
+          <td>${e.date}</td>
+          <td>${e.tagNo}</td>
+          <td>${e.area}</td>
+          <td>${e.dept}</td>
+          <td>${e.jobType}</td>
+          <td>${e.workLoc}</td>
+          <td>${e.scafType}</td>
+          <td>${e.elev}</td>
+          <td>${sessionData.supervisor}</td>
+          <td>${s.eng}</td>
+          <td>${e.l}</td>
+          <td>${e.w}</td>
+          <td>${e.h}</td>
+          <td>${e.nos}</td>
+          <td>${e.vol.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      const el = document.getElementById('report-container');
+      el.style.display = 'block';
+      const canvas = await html2canvas(el, { scale: 2 });
+      const img = canvas.toDataURL('image/jpeg', 0.9);
+      const link = document.createElement('a');
+      link.download = `Report_${sessionData.date}.jpg`;
+      link.href = img;
+      link.click();
+      el.style.display = 'none';
+    }
+
+    function getSummary() {
+      const s = sessionData.stats;
+      return `*SCAFFOLDING REPORT*\nDATE: ${sessionData.date}\nSUPERVISOR: ${sessionData.supervisor}\nMANPOWER: ${s.mp}\nMANHOURS: ${s.mh}\nERECTION: ${s.ere.toFixed(2)} m³\nDISMANTLING: ${s.dis.toFixed(2)} m³\nEQV VOLUME: ${s.eqv.toFixed(2)} m³\nPRODUCTIVITY: ${s.prod}`;
+    }
+
+    function copyWhatsAppText() {
+      navigator.clipboard.writeText(getSummary());
+      alert("Summary copied!");
+    }
+
+    function shareWhatsApp() {
+      window.open(`https://wa.me/?text=${encodeURIComponent(getSummary())}`, '_blank');
+    }
+  </script>
 </body>
 </html>
